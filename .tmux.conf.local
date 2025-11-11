@@ -266,7 +266,7 @@ tmux_conf_theme_right_separator_sub=" ◗ "
 #     - #{uptime_s}
 #     - #{username}
 #     - #{username_ssh}
-tmux_conf_theme_status_left=" ⚡️ #S | 🫀 #{?uptime_y, #{uptime_y}y,}#{?uptime_d, #{uptime_d}d,}#{?uptime_h, #{uptime_h}h,}#{?uptime_m, #{uptime_m}m,}, ⚖️  #{loadavg} "
+tmux_conf_theme_status_left=" ⚡️ #S | 🫀 #{?uptime_y, #{uptime_y}y,}#{?uptime_d, #{uptime_d}d,}#{?uptime_h, #{uptime_h}h,}#{?uptime_m, #{uptime_m}m,},⚖️  #{loadavg} "
 tmux_conf_theme_status_right="#{weather},#{prefix}#{mouse}#{pairing}#{synchronized}#{?battery_status,#{battery_status},}#{?battery_bar,#{battery_bar},}#{?battery_percentage,#{battery_percentage},},%R,%d %b | #{username}#{root} | #{hostname} "
 
 # status left style
@@ -447,13 +447,19 @@ tmux_conf_uninstall_plugins_on_reload=true
 #set -g @continuum-restore 'on'
 
 # tpm plugins enabled
-# set -g @plugin 'tmux-plugins/tpm'
+set -g @plugin 'tmux-plugins/tpm'
+
+set -g @plugin 'b0o/tmux-autoreload'
 
 # sensible tmux shortcuts and options
 set -g @plugin 'tmux-plugins/tmux-sensible'
 
+# automatically set window titles
+set -g @plugin 'ofirgall/tmux-window-name'
+
 # resurrect and continue sessions
 set -g @plugin 'tmux-plugins/tmux-resurrect'
+
 set -g @plugin 'tmux-plugins/tmux-continuum'
 set -g @continuum-restore 'on'
 
@@ -474,6 +480,10 @@ set -g @plugin 'tmux-plugins/tmux-copycat'
 set -g @plugin 'tmux-plugins/tmux-logging'
 
 set -g @plugin 'sainnhe/tmux-fzf'
+
+set -g @plugin 'nhdaly/tmux-better-mouse-mode'
+# set-option -g mouse on
+
 
 # -- custom variables ----------------------------------------------------------
 
