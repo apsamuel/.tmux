@@ -1,0 +1,45 @@
+[submodule "plugins/tpm"]
+	path = plugins/tpm
+	url = git@github.com:tmux-plugins/tpm.git
+[submodule "plugins/tmux-autoreload"]
+	path = plugins/tmux-autoreload
+	url = git@github.com:b0o/tmux-autoreload.git
+[submodule "plugins/tmux-sensible"]
+	path = plugins/tmux-sensible
+	url = git@github.com:tmux-plugins/tmux-sensible.git
+[submodule "plugins/tmux-window-name"]
+	path = plugins/tmux-window-name
+	url = git@github.com:ofirgall/tmux-window-name.git
+[submodule "plugins/tmux-resurrect"]
+	path = plugins/tmux-resurrect
+	url = git@github.com:tmux-plugins/tmux-resurrect.git
+[submodule "plugins/tmux-continuum"]
+	path = plugins/tmux-continuum
+	url = git@github.com:tmux-plugins/tmux-continuum.git
+[submodule "plugins/tmux-yank"]
+	path = plugins/tmux-yank
+	url = git@github.com:tmux-plugins/tmux-yank.git
+[submodule "plugins/tmux-pain-control"]
+	path = plugins/tmux-pain-control
+	url = git@github.com:tmux-plugins/tmux-pain-control.git
+[submodule "plugins/tmux-copycat"]
+	path = plugins/tmux-copycat
+	url = git@github.com:tmux-plugins/tmux-copycat.git
+[submodule "plugins/tmux-open"]
+	path = plugins/tmux-open
+	url = git@github.com:tmux-plugins/tmux-open.git
+[submodule "plugins/tmux-prefix-highlight"]
+	path = plugins/tmux-prefix-highlight
+	url = git@github.com:tmux-plugins/tmux-prefix-highlight.git
+[submodule "plugins/tmux-urlview"]
+	path = plugins/tmux-urlview
+	url = git@github.com:tmux-plugins/tmux-urlview.git
+[submodule "plugins/tmux-logging"]
+	path = plugins/tmux-logging
+	url = git@github.com:tmux-plugins/tmux-logging.git
+[submodule "plugins/tmux-fzf"]
+	path = plugins/tmux-fzf
+	url = git@github.com:sainnhe/tmux-fzf.git
+[submodule "plugins/tmux-better-mouse-mode"]
+	path = plugins/tmux-better-mouse-mode
+	url = git@github.com:nhdaly/tmux-better-mouse-mode.git

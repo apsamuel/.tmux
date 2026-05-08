@@ -451,8 +451,6 @@ tmux_conf_uninstall_plugins_on_reload=true
 #set -g @continuum-restore 'on'
 
 # tpm plugins enabled
-set -g @plugin 'tmux-plugins/tpm'
-
 set -g @plugin 'b0o/tmux-autoreload'
 
 # sensible tmux shortcuts and options
@@ -478,8 +476,6 @@ set -g @plugin 'tmux-plugins/tmux-open'
 set -g @plugin 'tmux-plugins/tmux-prefix-highlight'
 
 set -g @plugin 'tmux-plugins/tmux-urlview'
-
-set -g @plugin 'tmux-plugins/tmux-copycat'
 
 set -g @plugin 'tmux-plugins/tmux-logging'
 
