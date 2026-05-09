@@ -5,6 +5,55 @@
 # (‑●‑●)> dual licensed under the WTFPL v2 license and the MIT license,
 #         without any warranty.
 #         Copyright 2012— Gregory Pakosz (@gpakosz).
+
+# -- set display time so messages aren't "swallowed"
+set -g display-time 2000
+# -- plugin manager path -------------------------------------------------------
+# install tpm + plugins outside ~/.tmux so the directory isn't required
+if-shell '[ -z "$TMUX_PLUGIN_MANAGER_PATH" ]' \
+    'set-environment -g TMUX_PLUGIN_MANAGER_PATH "${XDG_DATA_HOME:-$HOME/.local/share}/tmux/plugins"'
+
+# -- shell helpers -------------------------------------------------------------
+# expose vendor/oh-my-tmux/lib/tmux-helpers.sh to run-shell / if-shell bindings
+# usage:   bind-key X run-shell '"$TMUX_HELPERS" <command> [args...]'
+set-environment -g TMUX_HELPERS "$HOME/.dot/vendor/oh-my-tmux/lib/tmux-helpers.sh"
+
+# NOTE: bindings in this file are applied BEFORE oh-my-tmux's _apply_bindings
+# runs, so direct `bind-key X ...` lines can be overwritten. To win the race,
+# wrap the bind in `run-shell` — it executes after _apply_configuration.
+#
+# Also: keys oh-my-tmux already claims (H J K L for resize, p for paste, n for
+# next, hjkl for pane nav, etc.) will be re-clobbered unless deferred.
+
+# smoke test: prefix + g (for "greet") prints a hello via display-message
+bind-key g run-shell '"$TMUX_HELPERS" hello'
+
+# -- plugin manager (drop-in TPM replacement) ----------------------------------
+# Bindings mirror TPM defaults but invoke install_plugin in tmux-helpers.sh,
+# which manages plugins as git submodules under vendor/oh-my-tmux/plugins/
+# based on `set -g @plugin '...'` declarations in this file.
+#   prefix + I    → install missing declared plugins
+#   prefix + u    → update declared plugins (note: lowercase, matches tpm)
+#   prefix + M-u  → remove on-disk plugins not declared (orphans)
+#   prefix + M-l  → list status in a popup
+
+# disable TPM's own keybindings by pointing them at unused F-keys.
+# (oh-my-tmux fills empty @tpm-* with defaults I/u/M-u, so we use a stub.)
+set -g @tpm-install 'F11'
+set -g @tpm-update  'F12'
+set -g @tpm-clean   'F10'
+
+bind-key I run-shell '"$TMUX_HELPERS" install_plugin install ; tmux display-message "plugins: install pass complete"'
+bind-key u run-shell '"$TMUX_HELPERS" install_plugin update  ; tmux display-message "plugins: update pass complete"'
+bind-key M-u run-shell '"$TMUX_HELPERS" install_plugin clean ; tmux display-message "plugins: clean pass complete"'
+# show plugin status in a popup (tmux ≥ 3.2)
+bind-key M-l display-popup -E -w 80% -h 70% '"$TMUX_HELPERS" install_plugin list ; echo ; echo "press any key to close" ; read -r _'
+
+# defer the above bindings past oh-my-tmux's _apply_bindings AND tpm's binds.
+# A small wrapper script in lib/ does the actual binding after a short sleep,
+# avoiding the deeply nested quoting needed inline.
+run-shell -b 'sh "$HOME/.dot/vendor/oh-my-tmux/lib/tmux-bindings.sh"'
+
 # -- bindings ------------------------------------------------------------------
 
 # preserve tmux stock bindings,
