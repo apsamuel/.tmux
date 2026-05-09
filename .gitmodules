@@ -10,12 +10,6 @@
 [submodule "plugins/tmux-window-name"]
 	path = plugins/tmux-window-name
 	url = git@github.com:ofirgall/tmux-window-name.git
-[submodule "plugins/tmux-resurrect"]
-	path = plugins/tmux-resurrect
-	url = git@github.com:tmux-plugins/tmux-resurrect.git
-[submodule "plugins/tmux-continuum"]
-	path = plugins/tmux-continuum
-	url = git@github.com:tmux-plugins/tmux-continuum.git
 [submodule "plugins/tmux-yank"]
 	path = plugins/tmux-yank
 	url = git@github.com:tmux-plugins/tmux-yank.git
