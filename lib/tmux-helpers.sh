@@ -10,6 +10,26 @@
 
 set -eu
 
+DOT_DRY_RUN="${DOT_DRY_RUN:-0}"
+DOT_DEBUG="${DOT_DEBUG:-0}"
+DOT_VERBOSE="${DOT_VERBOSE:-0}"
+
+if [ "${DOT_DEBUG}" = "1" ]; then
+    set -x
+fi
+
+is_dry() {
+    [ "${DOT_DRY_RUN}" = "1" ]
+}
+
+run_mutation() {
+    if is_dry; then
+        printf '[dry-run] %s\n' "$*"
+        return 0
+    fi
+    "$@"
+}
+
 # ── core helpers ─────────────────────────────────────────────────────────────
 
 _log() {
@@ -20,7 +40,7 @@ _log() {
 
 # notify both via tmux display-message and stdout (when run from CLI)
 _notify() {
-    if [ -n "${TMUX:-}" ]; then
+    if [ -n "${TMUX:-}" ] && ! is_dry; then
         tmux display-message "$*"
     fi
     printf '%s\n' "$*"
@@ -28,8 +48,8 @@ _notify() {
 
 # resolve oh-my-tmux repo root (this script lives in <root>/lib/)
 _omt_root() {
-    script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-    CDPATH= cd -- "$script_dir/.." && pwd
+    script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
+    CDPATH='' cd -- "$script_dir/.." && pwd
 }
 
 # ── hello (smoke test) ───────────────────────────────────────────────────────
@@ -170,9 +190,13 @@ _plugin_add() {
         return 1
     fi
 
-    ( cd "$root" && git submodule add "$url" "$target" ) || return $?
+    run_mutation sh -c "cd \"$root\" && git submodule add \"$url\" \"$target\"" || return $?
     _log "plugin add name=$name url=$url"
-    _notify "✅ added $target ($url)"
+    if is_dry; then
+        _notify "[dry-run] would add $target ($url)"
+    else
+        _notify "✅ added $target ($url)"
+    fi
     cat <<EOF
 
 next steps:
@@ -197,7 +221,7 @@ _plugin_install_missing() {
         fi
         url=$(_plugin_url "$spec") || continue
         echo "→ adding $name ($url)"
-        ( cd "$root" && git submodule add "$url" "plugins/$name" ) \
+        run_mutation sh -c "cd \"$root\" && git submodule add \"$url\" \"plugins/$name\"" \
             && _log "plugin install name=$name url=$url" \
             && count=$((count + 1)) || echo "  failed: $name"
     done
@@ -215,7 +239,7 @@ _plugin_update_all() {
             continue
         }
         echo "→ updating $name"
-        ( cd "$root" && git submodule update --remote --merge -- "plugins/$name" ) \
+        run_mutation sh -c "cd \"$root\" && git submodule update --remote --merge -- \"plugins/$name\"" \
             || echo "  failed: $name"
         _log "plugin update name=$name"
     done
@@ -231,13 +255,19 @@ _plugin_clean_orphans() {
             continue
         fi
         echo "→ removing orphan $name"
-        ( cd "$root" \
-            && git submodule deinit -f -- "plugins/$name" >/dev/null 2>&1 || true
-          cd "$root" \
-            && git rm -f "plugins/$name" >/dev/null 2>&1 \
-            || rm -rf "plugins/$name"
-          rm -rf "$root/.git/modules/plugins/$name"
-        )
+                if is_dry; then
+                        printf '[dry-run] git -C %s submodule deinit -f -- plugins/%s\n' "$root" "$name"
+                        printf '[dry-run] git -C %s rm -f plugins/%s\n' "$root" "$name"
+                        printf '[dry-run] rm -rf %s/.git/modules/plugins/%s\n' "$root" "$name"
+                else
+                        ( cd "$root" \
+                                && git submodule deinit -f -- "plugins/$name" >/dev/null 2>&1 || true
+                            cd "$root" \
+                                && git rm -f "plugins/$name" >/dev/null 2>&1 \
+                                || rm -rf "plugins/$name"
+                            rm -rf "$root/.git/modules/plugins/$name"
+                        )
+                fi
         _log "plugin clean name=$name"
     done
     _notify "tmux plugins: clean pass complete"

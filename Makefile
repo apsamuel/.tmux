@@ -18,6 +18,9 @@
 #
 # Parameters:
 #   PLUGIN    owner/repo (for add-plugin / remove-plugin)
+#   DOT_DRY_RUN=1  print planned changes, do not mutate
+#   DOT_DEBUG=1    enable bash xtrace (-x)
+#   DOT_VERBOSE=1  verbose helper output
 #
 # Lives inside vendor/oh-my-tmux (submodule). Called directly or via top-level
 # dot Makefile passthrough targets (make tmux-install, tmux-add-plugin, …).
@@ -34,6 +37,13 @@ CONF_LOCAL := $(REPO)/.tmux.conf.local
 
 # ── Parameters ────────────────────────────────────────────────────────────────
 PLUGIN ?=
+DOT_DRY_RUN ?= 0
+DOT_DEBUG   ?= 0
+DOT_VERBOSE ?= 0
+
+RECIPE_ENV := set -euo pipefail; \
+	if [[ "$(DOT_DEBUG)" == "1" ]]; then set -x; fi; \
+	dry="$(DOT_DRY_RUN)"
 
 # ── Guards ────────────────────────────────────────────────────────────────────
 define require_plugin
@@ -55,6 +65,9 @@ help: ## Show this help
 	@echo ""
 	@echo "Parameters:"
 	@echo "  PLUGIN=owner/repo   for add-plugin / remove-plugin"
+	@echo "  DOT_DRY_RUN=1       preview only, no mutations"
+	@echo "  DOT_DEBUG=1         enable xtrace"
+	@echo "  DOT_VERBOSE=1       verbose helper output"
 	@echo ""
 	@echo "Targets:"
 	@grep -E '^[a-zA-Z0-9_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
@@ -65,28 +78,46 @@ help: ## Show this help
 # ══════════════════════════════════════════════════════════════════════════════
 
 install: ## Link configs → ~ and sync plugin submodules
-	@echo "[install] linking .tmux.conf → ~/.tmux.conf"
-	@ln -sfn "$(REPO)/.tmux.conf" "$(HOME)/.tmux.conf"
-	@echo "[install] linking .tmux.conf.local → ~/.tmux.conf.local"
-	@ln -sfn "$(REPO)/.tmux.conf.local" "$(HOME)/.tmux.conf.local"
-	@# archive legacy ~/.tmux if it exists
-	@if [ -e "$(HOME)/.tmux" ] || [ -L "$(HOME)/.tmux" ]; then \
+	@$(RECIPE_ENV); \
+	echo "[install] linking .tmux.conf → ~/.tmux.conf"; \
+	if [[ "$$dry" == "1" ]]; then \
+		echo "[dry-run] ln -sfn $(REPO)/.tmux.conf $(HOME)/.tmux.conf"; \
+	else \
+		ln -sfn "$(REPO)/.tmux.conf" "$(HOME)/.tmux.conf"; \
+	fi; \
+	echo "[install] linking .tmux.conf.local → ~/.tmux.conf.local"; \
+	if [[ "$$dry" == "1" ]]; then \
+		echo "[dry-run] ln -sfn $(REPO)/.tmux.conf.local $(HOME)/.tmux.conf.local"; \
+	else \
+		ln -sfn "$(REPO)/.tmux.conf.local" "$(HOME)/.tmux.conf.local"; \
+	fi; \
+	if [ -e "$(HOME)/.tmux" ] || [ -L "$(HOME)/.tmux" ]; then \
 		echo "[install] archiving legacy ~/.tmux → ~/.tmux.bak"; \
-		rm -rf "$(HOME)/.tmux.bak"; \
-		mv "$(HOME)/.tmux" "$(HOME)/.tmux.bak"; \
-	fi
-	@echo "[install] syncing plugin submodules..."
-	@"$(HELPERS)" install_plugin sync
-	@echo "[install] done"
+		if [[ "$$dry" == "1" ]]; then \
+			echo "[dry-run] rm -rf $(HOME)/.tmux.bak"; \
+			echo "[dry-run] mv $(HOME)/.tmux $(HOME)/.tmux.bak"; \
+		else \
+			rm -rf "$(HOME)/.tmux.bak"; \
+			mv "$(HOME)/.tmux" "$(HOME)/.tmux.bak"; \
+		fi; \
+	fi; \
+	echo "[install] syncing plugin submodules..."; \
+	DOT_DRY_RUN="$(DOT_DRY_RUN)" DOT_DEBUG="$(DOT_DEBUG)" DOT_VERBOSE="$(DOT_VERBOSE)" "$(HELPERS)" install_plugin sync; \
+	echo "[install] done"
 
 clean: ## Remove tmux config symlinks from ~
-	@echo "[clean] removing tmux config symlinks"
-	@rm -f "$(HOME)/.tmux.conf" "$(HOME)/.tmux.conf.local"
-	@echo "[clean] done"
+	@$(RECIPE_ENV); \
+	echo "[clean] removing tmux config symlinks"; \
+	if [[ "$$dry" == "1" ]]; then \
+		echo "[dry-run] rm -f $(HOME)/.tmux.conf $(HOME)/.tmux.conf.local"; \
+	else \
+		rm -f "$(HOME)/.tmux.conf" "$(HOME)/.tmux.conf.local"; \
+	fi; \
+	echo "[clean] done"
 
 update: ## Pull latest for all declared plugin submodules
 	@echo "[update] updating plugin submodules"
-	@"$(HELPERS)" install_plugin update
+	@DOT_DRY_RUN="$(DOT_DRY_RUN)" DOT_DEBUG="$(DOT_DEBUG)" DOT_VERBOSE="$(DOT_VERBOSE)" "$(HELPERS)" install_plugin update
 	@echo "[update] done"
 
 status: ## Show symlink health and plugin status
@@ -102,44 +133,71 @@ status: ## Show symlink health and plugin status
 	done
 	@echo ""
 	@echo "── plugin submodules ──"
-	@"$(HELPERS)" install_plugin list
+	@DOT_DRY_RUN="$(DOT_DRY_RUN)" DOT_DEBUG="$(DOT_DEBUG)" DOT_VERBOSE="$(DOT_VERBOSE)" "$(HELPERS)" install_plugin list
 
 add-plugin: ## Declare + clone a plugin (PLUGIN=owner/repo)
 	$(require_plugin)
-	@echo "[add-plugin] $(PLUGIN)"
-	@if grep -qE "^set -g @plugin '$(PLUGIN)'" "$(CONF_LOCAL)" 2>/dev/null; then \
+	@$(RECIPE_ENV); \
+	echo "[add-plugin] $(PLUGIN)"; \
+	if grep -qE "^set -g @plugin '$(PLUGIN)'" "$(CONF_LOCAL)" 2>/dev/null; then \
 		echo "  ✓ Already declared in .tmux.conf.local"; \
 	else \
 		echo "  Adding declaration to .tmux.conf.local..."; \
-		printf '\nset -g @plugin '\''$(PLUGIN)'\''\n' >> "$(CONF_LOCAL)"; \
+		if [[ "$$dry" == "1" ]]; then \
+			echo "[dry-run] printf '\\nset -g @plugin '\''$(PLUGIN)'\''\\n' >> $(CONF_LOCAL)"; \
+		else \
+			printf '\nset -g @plugin '\''$(PLUGIN)'\''\n' >> "$(CONF_LOCAL)"; \
+		fi; \
 	fi
-	@NAME=$$(basename "$(PLUGIN)" .git); \
+	@$(RECIPE_ENV); \
+	NAME=$$(basename "$(PLUGIN)" .git); \
 	if [ -d "$(REPO)/plugins/$$NAME" ]; then \
 		echo "  ✓ Submodule already exists: plugins/$$NAME"; \
 	else \
 		echo "  Registering submodule..."; \
-		git -C "$(REPO)" submodule add "git@github.com:$(PLUGIN).git" "plugins/$$NAME"; \
+		if [[ "$$dry" == "1" ]]; then \
+			echo "[dry-run] git -C $(REPO) submodule add git@github.com:$(PLUGIN).git plugins/$$NAME"; \
+		else \
+			git -C "$(REPO)" submodule add "git@github.com:$(PLUGIN).git" "plugins/$$NAME"; \
+		fi; \
 	fi
-	@NAME=$$(basename "$(PLUGIN)" .git); \
+	@$(RECIPE_ENV); \
+	NAME=$$(basename "$(PLUGIN)" .git); \
 	echo "  Initializing submodule..."; \
-	git -C "$(REPO)" submodule update --init "plugins/$$NAME"
+	if [[ "$$dry" == "1" ]]; then \
+		echo "[dry-run] git -C $(REPO) submodule update --init plugins/$$NAME"; \
+	else \
+		git -C "$(REPO)" submodule update --init "plugins/$$NAME"; \
+	fi
 	@echo "[add-plugin] done"
 
 remove-plugin: ## Undeclare + remove a plugin (PLUGIN=owner/repo)
 	$(require_plugin)
-	@echo "[remove-plugin] $(PLUGIN)"
-	@if grep -qE "^set -g @plugin '$(PLUGIN)'" "$(CONF_LOCAL)" 2>/dev/null; then \
+	@$(RECIPE_ENV); \
+	echo "[remove-plugin] $(PLUGIN)"; \
+	if grep -qE "^set -g @plugin '$(PLUGIN)'" "$(CONF_LOCAL)" 2>/dev/null; then \
 		echo "  Removing declaration from .tmux.conf.local..."; \
-		sed -i '' "/^set -g @plugin '$(subst /,\/,$(PLUGIN))'/d" "$(CONF_LOCAL)"; \
+		if [[ "$$dry" == "1" ]]; then \
+			echo "[dry-run] sed -i '' '/^set -g @plugin '$(subst /,\/,$(PLUGIN))'/d' $(CONF_LOCAL)"; \
+		else \
+			sed -i '' "/^set -g @plugin '$(subst /,\/,$(PLUGIN))'/d" "$(CONF_LOCAL)"; \
+		fi; \
 	else \
 		echo "  ✓ Not declared in .tmux.conf.local"; \
 	fi
-	@NAME=$$(basename "$(PLUGIN)" .git); \
+	@$(RECIPE_ENV); \
+	NAME=$$(basename "$(PLUGIN)" .git); \
 	if git -C "$(REPO)" config -f .gitmodules --get "submodule.plugins/$$NAME.url" >/dev/null 2>&1; then \
 		echo "  Removing submodule..."; \
-		git -C "$(REPO)" submodule deinit -f "plugins/$$NAME" 2>/dev/null || true; \
-		git -C "$(REPO)" rm -f "plugins/$$NAME" 2>/dev/null || true; \
-		rm -rf "$(REPO)/.git/modules/plugins/$$NAME"; \
+		if [[ "$$dry" == "1" ]]; then \
+			echo "[dry-run] git -C $(REPO) submodule deinit -f plugins/$$NAME"; \
+			echo "[dry-run] git -C $(REPO) rm -f plugins/$$NAME"; \
+			echo "[dry-run] rm -rf $(REPO)/.git/modules/plugins/$$NAME"; \
+		else \
+			git -C "$(REPO)" submodule deinit -f "plugins/$$NAME" 2>/dev/null || true; \
+			git -C "$(REPO)" rm -f "plugins/$$NAME" 2>/dev/null || true; \
+			rm -rf "$(REPO)/.git/modules/plugins/$$NAME"; \
+		fi; \
 	else \
 		echo "  ✓ Submodule not registered in .gitmodules"; \
 	fi
@@ -147,8 +205,8 @@ remove-plugin: ## Undeclare + remove a plugin (PLUGIN=owner/repo)
 
 sync-plugins: ## Reconcile declared plugins ↔ on-disk submodules
 	@echo "[sync-plugins] reconciling..."
-	@"$(HELPERS)" install_plugin sync
+	@DOT_DRY_RUN="$(DOT_DRY_RUN)" DOT_DEBUG="$(DOT_DEBUG)" DOT_VERBOSE="$(DOT_VERBOSE)" "$(HELPERS)" install_plugin sync
 	@echo "[sync-plugins] done"
 
 list-plugins: ## Show declared vs installed plugin status
-	@"$(HELPERS)" install_plugin list
+	@DOT_DRY_RUN="$(DOT_DRY_RUN)" DOT_DEBUG="$(DOT_DEBUG)" DOT_VERBOSE="$(DOT_VERBOSE)" "$(HELPERS)" install_plugin list
