@@ -51,7 +51,7 @@ define require_plugin
 endef
 
 # ── Phony declarations ───────────────────────────────────────────────────────
-.PHONY: help install clean update status \
+.PHONY: help install clean update status doctor \
         add-plugin remove-plugin sync-plugins list-plugins
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -210,3 +210,71 @@ sync-plugins: ## Reconcile declared plugins ↔ on-disk submodules
 
 list-plugins: ## Show declared vs installed plugin status
 	@DOT_DRY_RUN="$(DOT_DRY_RUN)" DOT_DEBUG="$(DOT_DEBUG)" DOT_VERBOSE="$(DOT_VERBOSE)" "$(HELPERS)" install_plugin list
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Doctor — read-only health check
+# ══════════════════════════════════════════════════════════════════════════════
+
+doctor: ## Read-only health check (tmux, symlinks, plugins)
+	@$(RECIPE_ENV); \
+	fails=0; \
+	echo "── oh-my-tmux doctor ──"; \
+	echo ""; \
+	echo "── dependencies ──"; \
+	if command -v tmux >/dev/null 2>&1; then \
+		printf '  ✔  tmux %s\n' "$$(tmux -V 2>/dev/null | head -1)"; \
+	else \
+		printf '  ✘  tmux not found\n'; \
+		fails=$$((fails + 1)); \
+	fi; \
+	echo ""; \
+	echo "── config symlinks ──"; \
+	for f in .tmux.conf .tmux.conf.local; do \
+		if [ -L "$(HOME)/$$f" ]; then \
+			target=$$(readlink "$(HOME)/$$f"); \
+			case "$$f" in \
+				.tmux.conf)       expected="$(REPO)/.tmux.conf" ;; \
+				.tmux.conf.local) expected="$(CONF_LOCAL)" ;; \
+			esac; \
+			if [ "$$target" = "$$expected" ]; then \
+				printf '  ✔  ~/%-20s → %s\n' "$$f" "$$target"; \
+			else \
+				printf '  ✘  ~/%-20s → %s (expected %s)\n' "$$f" "$$target" "$$expected"; \
+				fails=$$((fails + 1)); \
+			fi; \
+		elif [ -e "$(HOME)/$$f" ]; then \
+			printf '  ✘  ~/%-20s exists but is NOT a symlink\n' "$$f"; \
+			fails=$$((fails + 1)); \
+		else \
+			printf '  ✘  ~/%-20s missing\n' "$$f"; \
+			fails=$$((fails + 1)); \
+		fi; \
+	done; \
+	echo ""; \
+	echo "── plugin submodules ──"; \
+	if [ -r "$(CONF_LOCAL)" ]; then \
+		while IFS= read -r line; do \
+			plugin=$$(echo "$$line" | sed "s/^set -g @plugin '\(.*\)'/\1/"); \
+			name=$$(basename "$$plugin"); \
+			if [ -d "$(REPO)/plugins/$$name" ] && [ -n "$$(ls -A "$(REPO)/plugins/$$name" 2>/dev/null)" ]; then \
+				printf '  ✔  %-30s ok\n' "$$plugin"; \
+			elif [ -d "$(REPO)/plugins/$$name" ]; then \
+				printf '  ✘  %-30s directory exists but empty (not checked out)\n' "$$plugin"; \
+				fails=$$((fails + 1)); \
+			else \
+				printf '  ✘  %-30s directory missing\n' "$$plugin"; \
+				fails=$$((fails + 1)); \
+			fi; \
+		done < <(grep -E "^set -g @plugin '" "$(CONF_LOCAL)"); \
+	else \
+		printf '  ✘  %s not found\n' "$(CONF_LOCAL)"; \
+		fails=$$((fails + 1)); \
+	fi; \
+	echo ""; \
+	if [ $$fails -gt 0 ]; then \
+		echo "✘ $$fails issue(s) found"; \
+		exit 1; \
+	else \
+		echo "✔ oh-my-tmux fully healthy"; \
+	fi
