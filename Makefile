@@ -36,10 +36,13 @@ HELPERS    := $(REPO)/lib/tmux-helpers.sh
 CONF_LOCAL := $(REPO)/.tmux.conf.local
 
 # ── Parameters ────────────────────────────────────────────────────────────────
-PLUGIN ?=
-DOT_DRY_RUN ?= 0
-DOT_DEBUG   ?= 0
-DOT_VERBOSE ?= 0
+PLUGIN      ?=
+DRY         ?= 0
+DEBUG       ?= 0
+VERBOSE     ?= 0
+DOT_DRY_RUN ?= $(DRY)
+DOT_DEBUG   ?= $(DEBUG)
+DOT_VERBOSE ?= $(VERBOSE)
 
 RECIPE_ENV := set -euo pipefail; \
 	if [[ "$(DOT_DEBUG)" == "1" ]]; then set -x; fi; \
